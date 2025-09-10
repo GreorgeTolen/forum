@@ -1,0 +1,17 @@
+{{ define "title" }}Список досок — Форум{{ end }}
+{{ define "content" }}
+<h2 style="margin-bottom:20px; font-size:24px; color:#333;">Список досок</h2>
+<ul style="list-style:none; padding:0; margin:0;">
+    {{ range . }}
+    <li style="margin-bottom:16px; padding:16px; border:1px solid #ddd; border-radius:8px; background:#fafafa; transition:0.2s;">
+        <a href="/board/?id={{ .ID }}" 
+           style="font-size:18px; font-weight:bold; color:#0066cc; text-decoration:none;">
+           {{ .Title }}
+        </a>
+        <p style="margin:6px 0 0; color:#555;">{{ .Description }}</p>
+    </li>
+    {{ else }}
+    <p style="color:#777;">Нет доступных досок.</p>
+    {{ end }}
+</ul>
+{{ end }}
