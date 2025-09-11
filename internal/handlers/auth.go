@@ -5,7 +5,7 @@ import (
 	"net/http"
 
 	"forum1/db"
-	"forum1/models"
+	"forum1/internal/entity"
 	"forum1/utils" // для Hash/CheckPassword если есть
 )
 
@@ -14,7 +14,7 @@ func LoginPage(w http.ResponseWriter, r *http.Request) {
 		username := r.FormValue("username")
 		password := r.FormValue("password")
 
-		var user models.User
+		var user entity.User
 		err := db.DB.QueryRow("SELECT id, username, email, password FROM users WHERE username=$1", username).
 			Scan(&user.ID, &user.Username, &user.Email, &user.Password)
 		if err == sql.ErrNoRows {

@@ -11,7 +11,7 @@ var DB *sql.DB
 
 // Инициализация подключения
 func InitDB() error {
-	connStr := "host=localhost port=2609 user=postgres password=kukabek2609 dbname=forumdb sslmode=disable"
+	connStr := "host=localhost port=5432 user=postgres password=120311 dbname=forumdb sslmode=disable"
 	var err error
 	DB, err = sql.Open("postgres", connStr)
 	if err != nil {

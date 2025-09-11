@@ -1,70 +1,88 @@
-{{ define "title" }}Пост — {{ .Title }}{{ end }}
-{{ define "content" }}
+{{ define "title" }}Пост — {{ .Title }}{{ end }} {{ define "content" }}
 <article>
 	<h2>{{ .Title }}</h2>
 	<div>
 		<small>Автор ID: {{ .AuthorID }} · Доска ID: {{ .BoardID }}</small>
 	</div>
-	<div style="margin:12px 0; white-space:pre-wrap;">{{ .Content }}</div>
+	<div style="margin: 12px 0; white-space: pre-wrap">{{ .Content }}</div>
 	{{ if .ImageData }}
-	<div style="margin-top:12px;">
-		<img src="/post_image/?id={{ .ID }}" alt="image" style="max-width:100%; height:auto;" />
+	<div style="margin-top: 12px">
+		<img
+			src="/post_image/?id={{ .ID }}"
+			alt="image"
+			style="max-width: 100%; height: auto"
+		/>
 	</div>
-	{{ end }}
-	{{ if .LinkURL }}
-	<div style="margin-top:12px;">
+	{{ end }} {{ if .LinkURL }}
+	<div style="margin-top: 12px">
 		<a href="{{ .LinkURL }}" target="_blank" rel="noopener">Ссылка</a>
 	</div>
 	{{ end }}
-	<div style="margin-top:12px;">
+	<div style="margin-top: 12px">
 		<small>Создан: {{ .CreatedAt }} · Обновлён: {{ .UpdatedAt }}</small>
 	</div>
-	<div style="margin-top:16px;">
+	<div style="margin-top: 16px">
 		<a href="/edit_post_page/?id={{ .ID }}">Редактировать</a>
 	</div>
 </article>
 
-<section style="margin-top:24px;">
+<section style="margin-top: 24px">
 	<h3>Лайки: {{ .Likes }} · Дизлайки: {{ .Dislikes }}</h3>
-	<form method="POST" action="/vote_post/" style="display:inline;">
+	<form method="POST" action="/vote_post/" style="display: inline">
 		<input type="hidden" name="post_id" value="{{ .ID }}" />
 		<input type="hidden" name="value" value="1" />
 		<button type="submit">Лайк</button>
 	</form>
-	<form method="POST" action="/vote_post/" style="display:inline; margin-left:8px;">
+	<form
+		method="POST"
+		action="/vote_post/"
+		style="display: inline; margin-left: 8px"
+	>
 		<input type="hidden" name="post_id" value="{{ .ID }}" />
 		<input type="hidden" name="value" value="-1" />
 		<button type="submit">Дизлайк</button>
 	</form>
 </section>
 
-<section style="margin-top:24px;">
+<section style="margin-top: 24px">
 	<h3>Комментарии</h3>
 	<form method="POST" action="/add_comment/">
 		<input type="hidden" name="post_id" value="{{ .ID }}" />
-		<textarea name="content" rows="3" style="width:100%;" required></textarea>
-		<div style="margin-top:8px;"><button type="submit">Отправить</button></div>
+		<textarea name="content" rows="3" style="width: 100%" required></textarea>
+		<div style="margin-top: 8px"><button type="submit">Отправить</button></div>
 	</form>
-	<ul style="list-style:none; padding:0; margin-top:16px;">
+	<ul style="list-style: none; padding: 0; margin-top: 16px">
 		{{ range .Comments }}
-		<li style="border-top:1px solid #eee; padding:8px 0;">
+		<li style="border-top: 1px solid #eee; padding: 8px 0">
 			<div><strong>Автор ID: {{ .AuthorID }}</strong> · {{ .CreatedAt }}</div>
-			<div style="white-space:pre-wrap;">{{ .Content }}</div>
-			<div style="margin-top:6px;">
+			<div style="white-space: pre-wrap">{{ .Content }}</div>
+			<div style="margin-top: 6px">
 				<span>Лайки: {{ .Likes }} · Дизлайки: {{ .Dislikes }}</span>
-				<form method="POST" action="/vote_comment/" style="display:inline; margin-left:8px;">
+				<form
+					method="POST"
+					action="/vote_comment/"
+					style="display: inline; margin-left: 8px"
+				>
 					<input type="hidden" name="post_id" value="{{ $.ID }}" />
 					<input type="hidden" name="comment_id" value="{{ .ID }}" />
 					<input type="hidden" name="value" value="1" />
 					<button type="submit">Лайк</button>
 				</form>
-				<form method="POST" action="/vote_comment/" style="display:inline; margin-left:4px;">
+				<form
+					method="POST"
+					action="/vote_comment/"
+					style="display: inline; margin-left: 4px"
+				>
 					<input type="hidden" name="post_id" value="{{ $.ID }}" />
 					<input type="hidden" name="comment_id" value="{{ .ID }}" />
 					<input type="hidden" name="value" value="-1" />
 					<button type="submit">Дизлайк</button>
 				</form>
-				<form method="POST" action="/delete_comment/" style="display:inline; margin-left:8px;">
+				<form
+					method="POST"
+					action="/delete_comment/"
+					style="display: inline; margin-left: 8px"
+				>
 					<input type="hidden" name="post_id" value="{{ $.ID }}" />
 					<input type="hidden" name="comment_id" value="{{ .ID }}" />
 					<button type="submit">Удалить</button>

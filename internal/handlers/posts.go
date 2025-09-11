@@ -4,16 +4,15 @@ import (
 	"database/sql"
 	"fmt"
 	"forum1/db"
-	"forum1/models"
+	"forum1/internal/entity"
+	"forum1/internal/models"
 	"forum1/utils"
 	"io"
 	"net/http"
 	"strconv"
 )
 
-// Страница создания поста
 func CreatePostPage(w http.ResponseWriter, r *http.Request) {
-	// Проверяем авторизацию
 	cookie, err := r.Cookie("user")
 	if err != nil {
 		http.Redirect(w, r, "/login_page/", http.StatusSeeOther)
@@ -21,7 +20,6 @@ func CreatePostPage(w http.ResponseWriter, r *http.Request) {
 	}
 	username := cookie.Value
 
-	// Получаем ID пользователя из БД
 	var userID int
 	err = db.DB.QueryRow("SELECT id FROM users WHERE username=$1", username).Scan(&userID)
 	if err == sql.ErrNoRows {
@@ -37,7 +35,6 @@ func CreatePostPage(w http.ResponseWriter, r *http.Request) {
 		title := r.FormValue("title")
 		content := r.FormValue("content")
 
-		// читаем файл изображения если он есть
 		var imageBytes []byte
 		r.ParseMultipartForm(10 << 20) // 10MB
 		file, _, err := r.FormFile("image")
@@ -58,7 +55,7 @@ func CreatePostPage(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		post := &models.Post{
+		post := &entity.Post{
 			BoardID:   boardID,
 			Title:     title,
 			Content:   content,
@@ -72,15 +69,20 @@ func CreatePostPage(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		// Редирект на страницу доски
-		http.Redirect(w, r, fmt.Sprintf("/board_page?id=%d", boardID), http.StatusSeeOther)
-		return
+		var slug string
+		for _, b := range Boards {
+			if b.ID == boardID {
+				slug = b.Slug
+				break
+			}
+		}
+		http.Redirect(w, r, fmt.Sprintf("/board/?slug=%s", slug), http.StatusSeeOther)
+
 	}
 
 	utils.RenderTemplate(w, "create_post_page.html", Boards)
 }
 
-// Просмотр поста
 func PostPage(w http.ResponseWriter, r *http.Request) {
 	idStr := r.URL.Query().Get("id")
 	if idStr == "" {
@@ -103,7 +105,6 @@ func PostPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// уникальный просмотр (по username)
 	if cookie, cerr := r.Cookie("user"); cerr == nil {
 		var uid int
 		if err := db.DB.QueryRow("SELECT id FROM users WHERE username=$1", cookie.Value).Scan(&uid); err == nil {
@@ -113,20 +114,35 @@ func PostPage(w http.ResponseWriter, r *http.Request) {
 	var views int
 	_ = db.DB.QueryRow(`SELECT COUNT(*) FROM post_views WHERE post_id=$1`, id).Scan(&views)
 
-	// комментарии
 	comments, _ := models.GetCommentsByPost(id)
 	post.Comments = comments
 
-	// лайки/дизлайки поста
 	_ = db.DB.QueryRow(`SELECT COALESCE(SUM(CASE WHEN value=1 THEN 1 ELSE 0 END),0) AS likes,
 		COALESCE(SUM(CASE WHEN value=-1 THEN 1 ELSE 0 END),0) AS dislikes
 		FROM post_votes WHERE post_id=$1`, id).Scan(&post.Likes, &post.Dislikes)
 
-	// прокинем просмотры через фейковое поле LinkURL (не трогаю структуры шаблонов) — нет, лучше в заголовок
 	utils.RenderTemplate(w, "post_page.html", post)
 }
 
-// Отдача изображения поста из БД
+func GetPostsByBoard(boardID int) ([]entity.Post, error) {
+	rows, err := db.DB.Query(`SELECT id, board_id, title, content, author_id, created_at, updated_at, image_url, link_url 
+	                          FROM posts WHERE board_id=$1 ORDER BY created_at DESC`, boardID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var posts []entity.Post
+	for rows.Next() {
+		var p entity.Post
+		if err := rows.Scan(&p.ID, &p.BoardID, &p.Title, &p.Content, &p.AuthorID, &p.CreatedAt, &p.UpdatedAt, &p.ImageURL, &p.LinkURL); err != nil {
+			return nil, err
+		}
+		posts = append(posts, p)
+	}
+	return posts, nil
+}
+
 func PostImage(w http.ResponseWriter, r *http.Request) {
 	idStr := r.URL.Query().Get("id")
 	if idStr == "" {
@@ -156,7 +172,6 @@ func PostImage(w http.ResponseWriter, r *http.Request) {
 	_, _ = w.Write(post.ImageData)
 }
 
-// Редактирование поста
 func EditPostPage(w http.ResponseWriter, r *http.Request) {
 	idStr := r.URL.Query().Get("id")
 	if idStr == "" {
@@ -203,7 +218,6 @@ func EditPostPage(w http.ResponseWriter, r *http.Request) {
 	utils.RenderTemplate(w, "edit_post_page.html", post)
 }
 
-// Голос за пост
 func VotePost(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Метод не поддерживается", http.StatusMethodNotAllowed)
@@ -231,7 +245,6 @@ func VotePost(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/post_page?id="+idStr, http.StatusSeeOther)
 }
 
-// Добавить комментарий
 func AddComment(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Метод не поддерживается", http.StatusMethodNotAllowed)
@@ -250,7 +263,7 @@ func AddComment(w http.ResponseWriter, r *http.Request) {
 	postIDStr := r.FormValue("post_id")
 	content := r.FormValue("content")
 	postID, _ := strconv.Atoi(postIDStr)
-	c := &models.Comment{PostID: postID, AuthorID: userID, Content: content}
+	c := &entity.Comment{PostID: postID, AuthorID: userID, Content: content}
 	if err := models.CreateComment(c); err != nil {
 		http.Error(w, "Ошибка добавления комментария: "+err.Error(), http.StatusInternalServerError)
 		return
@@ -258,7 +271,6 @@ func AddComment(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/post_page?id="+postIDStr, http.StatusSeeOther)
 }
 
-// Удалить комментарий (может автор поста или автор коммента)
 func DeleteComment(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Метод не поддерживается", http.StatusMethodNotAllowed)
@@ -291,7 +303,6 @@ func DeleteComment(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/post_page?id="+postIDStr, http.StatusSeeOther)
 }
 
-// Голос за комментарий
 func VoteComment(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Метод не поддерживается", http.StatusMethodNotAllowed)

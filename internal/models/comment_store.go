@@ -2,21 +2,10 @@ package models
 
 import (
 	"forum1/db"
-	"time"
+	"forum1/internal/entity"
 )
 
-type Comment struct {
-	ID        int
-	PostID    int
-	AuthorID  int
-	Content   string
-	CreatedAt time.Time
-	UpdatedAt time.Time
-	Likes     int
-	Dislikes  int
-}
-
-func CreateComment(c *Comment) error {
+func CreateComment(c *entity.Comment) error {
 	query := `INSERT INTO comments (post_id, author_id, content) VALUES ($1, $2, $3) RETURNING id, created_at, updated_at`
 	return db.DB.QueryRow(query, c.PostID, c.AuthorID, c.Content).Scan(&c.ID, &c.CreatedAt, &c.UpdatedAt)
 }
@@ -32,7 +21,7 @@ func ForceDeleteComment(id int) error {
 	return err
 }
 
-func GetCommentsByPost(postID int) ([]Comment, error) {
+func GetCommentsByPost(postID int) ([]entity.Comment, error) {
 	rows, err := db.DB.Query(`
 		SELECT c.id, c.post_id, c.author_id, c.content, c.created_at, c.updated_at,
 			COALESCE(SUM(CASE WHEN cv.value=1 THEN 1 ELSE 0 END),0) AS likes,
@@ -47,9 +36,9 @@ func GetCommentsByPost(postID int) ([]Comment, error) {
 	}
 	defer rows.Close()
 
-	var out []Comment
+	var out []entity.Comment
 	for rows.Next() {
-		var c Comment
+		var c entity.Comment
 		if err := rows.Scan(&c.ID, &c.PostID, &c.AuthorID, &c.Content, &c.CreatedAt, &c.UpdatedAt, &c.Likes, &c.Dislikes); err != nil {
 			return nil, err
 		}
