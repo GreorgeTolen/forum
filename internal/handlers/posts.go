@@ -125,8 +125,13 @@ func PostPage(w http.ResponseWriter, r *http.Request) {
 }
 
 func GetPostsByBoard(boardID int) ([]entity.Post, error) {
-	rows, err := db.DB.Query(`SELECT id, board_id, title, content, author_id, created_at, updated_at, image_url, link_url 
-	                          FROM posts WHERE board_id=$1 ORDER BY created_at DESC`, boardID)
+	rows, err := db.DB.Query(`
+		SELECT id, board_id, title, content, author_id,
+		       created_at, updated_at, image_url, link_url
+		FROM posts
+		WHERE board_id = $1
+		ORDER BY created_at DESC
+	`, boardID)
 	if err != nil {
 		return nil, err
 	}
@@ -135,7 +140,11 @@ func GetPostsByBoard(boardID int) ([]entity.Post, error) {
 	var posts []entity.Post
 	for rows.Next() {
 		var p entity.Post
-		if err := rows.Scan(&p.ID, &p.BoardID, &p.Title, &p.Content, &p.AuthorID, &p.CreatedAt, &p.UpdatedAt, &p.ImageURL, &p.LinkURL); err != nil {
+		if err := rows.Scan(
+			&p.ID, &p.BoardID, &p.Title, &p.Content,
+			&p.AuthorID, &p.CreatedAt, &p.UpdatedAt,
+			&p.ImageURL, &p.LinkURL,
+		); err != nil {
 			return nil, err
 		}
 		posts = append(posts, p)

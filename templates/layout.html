@@ -96,29 +96,48 @@
 			}
 		</style>
 	</head>
+	<script>
+		function filterMain() {
+			let input = document
+				.getElementById('main-search-input')
+				.value.toLowerCase()
+			let posts = document.querySelectorAll('main .post') // ищем только посты
+			posts.forEach(post => {
+				let text = post.innerText.toLowerCase()
+				if (text.includes(input)) {
+					post.style.display = ''
+				} else {
+					post.style.display = 'none'
+				}
+			})
+		}
+
+		// Реакция "на лету"
+		document
+			.getElementById('main-search-input')
+			.addEventListener('input', filterMain)
+	</script>
+
 	<body>
 		<header>
 			<h1>My Forum</h1>
-			<form class="search-bar" action="/search_page/" method="get">
-				<input type="text" name="q" placeholder="Поиск..." />
-				<button type="submit">Найти</button>
+			<form class="search-bar" id="main-search-form" onsubmit="return false;">
+				<input type="text" id="main-search-input" placeholder="Поиск..." />
+				<button type="button" onclick="filterMain()">Найти</button>
 			</form>
 		</header>
 		<div class="container">
 			<!-- Левое меню -->
 			<nav>
 				<h3>Навигация</h3>
-				<a href="/">Главная</a>
-				<a href="/boards_list_page/">Доски</a>
+				<a href="/">Главная</a> <a href="/boards_list_page/">Доски</a>
 				<a href="/profile_page/">Профиль</a>
 				<a href="/create_post_page/">Создать пост</a>
 				<a href="/login_page/">Войти</a>
 				<a href="/register_page/">Регистрация</a>
 			</nav>
-
 			<!-- Центральная часть -->
 			<main>{{ template "content" . }}</main>
-
 			<!-- Правая колонка -->
 			<aside>
 				<h4>Категории</h4>

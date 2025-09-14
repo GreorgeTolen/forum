@@ -5,6 +5,7 @@ import (
 	"forum1/internal/models"
 	"forum1/utils"
 	"net/http"
+	"strings"
 )
 
 var Boards = []entity.Board{
@@ -34,17 +35,11 @@ func BoardPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Здесь уже получаем только посты для нужной доски
 	posts, err := models.GetPostsByBoard(board.ID)
 	if err != nil {
 		http.Error(w, "Ошибка при получении постов: "+err.Error(), http.StatusInternalServerError)
 		return
-	}
-
-	var boardPosts []entity.Post
-	for _, p := range posts {
-		if p.BoardID == board.ID {
-			boardPosts = append(boardPosts, p)
-		}
 	}
 
 	data := struct {
@@ -52,16 +47,79 @@ func BoardPage(w http.ResponseWriter, r *http.Request) {
 		Posts []entity.Post
 	}{
 		Board: *board,
-		Posts: boardPosts,
+		Posts: posts, // напрямую передаём
 	}
 
 	utils.RenderTemplate(w, "board_page.html", data)
 }
 
 func BoardsListPage(w http.ResponseWriter, r *http.Request) {
-	utils.RenderTemplate(w, "boards_list_page.html", Boards)
+	query := strings.TrimSpace(r.URL.Query().Get("q"))
+
+	var filtered []entity.Board
+	if query == "" {
+		filtered = Boards
+	} else {
+		for _, b := range Boards {
+			if strings.Contains(strings.ToLower(b.Title), strings.ToLower(query)) ||
+				strings.Contains(strings.ToLower(b.Description), strings.ToLower(query)) {
+				filtered = append(filtered, b)
+			}
+		}
+	}
+
+	data := struct {
+		Query  string
+		Boards []entity.Board
+	}{
+		Query:  query,
+		Boards: filtered,
+	}
+
+	utils.RenderTemplate(w, "boards_list_page.html", data)
 }
 
 func BoardsSearchPage(w http.ResponseWriter, r *http.Request) {
-	utils.RenderTemplate(w, "boards_search_page.html", nil)
+	query := r.URL.Query().Get("q")
+	if query == "" {
+		http.Error(w, "Не указан поисковый запрос", http.StatusBadRequest)
+		return
+	}
+
+	// --- Поиск по доскам ---
+	var boardResults []entity.Board
+	for _, b := range Boards {
+		if strings.Contains(strings.ToLower(b.Title), strings.ToLower(query)) ||
+			strings.Contains(strings.ToLower(b.Description), strings.ToLower(query)) {
+			boardResults = append(boardResults, b)
+		}
+	}
+
+	// --- Поиск по постам ---
+	posts, err := models.GetAllPosts()
+	if err != nil {
+		http.Error(w, "Ошибка при получении постов: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	var postResults []entity.Post
+	for _, p := range posts {
+		if strings.Contains(strings.ToLower(p.Title), strings.ToLower(query)) ||
+			strings.Contains(strings.ToLower(p.Content), strings.ToLower(query)) {
+			postResults = append(postResults, p)
+		}
+	}
+
+	// --- Данные для шаблона ---
+	data := struct {
+		Query        string
+		BoardsResult []entity.Board
+		PostsResult  []entity.Post
+	}{
+		Query:        query,
+		BoardsResult: boardResults,
+		PostsResult:  postResults,
+	}
+
+	utils.RenderTemplate(w, "boards_search_page.html", data)
 }
