@@ -12,6 +12,19 @@ import (
 	"strconv"
 )
 
+// CreatePostPage godoc
+// @Summary Create a new post
+// @Description Создает пост (multipart/form-data поддерживается для image)
+// @Tags Posts
+// @Accept multipart/form-data
+// @Produce json
+// @Param board_id formData int true "Board ID"
+// @Param title formData string true "Title"
+// @Param content formData string true "Content"
+// @Param image formData file false "Image file"
+// @Success 302 {string} string "redirect to board"
+// @Failure 400 {object} map[string]string
+// @Router /create_post_page/ [post]
 func CreatePostPage(w http.ResponseWriter, r *http.Request) {
 	cookie, err := r.Cookie("user")
 	if err != nil {
@@ -83,6 +96,15 @@ func CreatePostPage(w http.ResponseWriter, r *http.Request) {
 	utils.RenderTemplate(w, "create_post_page.html", Boards)
 }
 
+// PostPage godoc
+// @Summary Get a post
+// @Description Возвращает пост по id
+// @Tags Posts
+// @Produce json
+// @Param id query int true "Post ID"
+// @Success 200 {object} entity.Post
+// @Failure 404 {object} map[string]string
+// @Router /post_page/ [get]
 func PostPage(w http.ResponseWriter, r *http.Request) {
 	idStr := r.URL.Query().Get("id")
 	if idStr == "" {
@@ -124,6 +146,13 @@ func PostPage(w http.ResponseWriter, r *http.Request) {
 	utils.RenderTemplate(w, "post_page.html", post)
 }
 
+// GetPostsByBoard (если экспортирован как handler или используется в модели)
+// @Summary Get posts by board
+// @Tags Posts
+// @Produce json
+// @Param board_id query int true "Board ID"
+// @Success 200 {array} entity.Post
+// @Router /posts/by_board [get]
 func GetPostsByBoard(boardID int) ([]entity.Post, error) {
 	rows, err := db.DB.Query(`
 		SELECT id, board_id, title, content, author_id,

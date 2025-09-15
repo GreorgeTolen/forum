@@ -8,6 +8,14 @@ import (
 	"strings"
 )
 
+// SearchPage godoc
+// @Summary Search in forum
+// @Description Search posts and boards by query
+// @Tags Search
+// @Produce json
+// @Param q query string true "Search query"
+// @Success 200 {object} map[string]interface{}
+// @Router /search_page/ [get]
 func SearchPage(w http.ResponseWriter, r *http.Request) {
 	query := strings.TrimSpace(r.URL.Query().Get("q"))
 

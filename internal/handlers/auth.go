@@ -9,6 +9,15 @@ import (
 	"forum1/utils" // для Hash/CheckPassword если есть
 )
 
+// LoginPage godoc
+// @Summary User login
+// @Tags Auth
+// @Accept application/x-www-form-urlencoded
+// @Param username formData string true "Username"
+// @Param password formData string true "Password"
+// @Success 302 {string} string "redirect to profile"
+// @Failure 401 {object} map[string]string
+// @Router /login_page/ [post]
 func LoginPage(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodPost {
 		username := r.FormValue("username")
@@ -37,6 +46,17 @@ func LoginPage(w http.ResponseWriter, r *http.Request) {
 	utils.RenderTemplate(w, "login_page.html", nil)
 	// render template
 }
+
+// RegisterPage godoc
+// @Summary Register new user
+// @Tags Auth
+// @Accept application/x-www-form-urlencoded
+// @Param username formData string true "Username"
+// @Param email formData string true "Email"
+// @Param password formData string true "Password"
+// @Success 302 {string} string "redirect to login"
+// @Failure 400 {object} map[string]string
+// @Router /register_page/ [post]
 func RegisterPage(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodPost {
 		username := r.FormValue("username")

@@ -16,6 +16,16 @@ var Boards = []entity.Board{
 	{ID: 5, Slug: "reviews", Title: "Рецензии", Description: "Ваши обзоры на фильмы, игры и книги"},
 }
 
+// BoardPage godoc
+// @Summary Get board by slug
+// @Description Возвращает доску и её посты по slug
+// @Tags Boards
+// @Produce json
+// @Param slug query string true "Board slug"
+// @Success 200 {object} entity.BoardWithPostsResponse
+
+// @Failure 400 {object} map[string]string
+// @Router /board/ [get]
 func BoardPage(w http.ResponseWriter, r *http.Request) {
 	slug := r.URL.Query().Get("slug")
 	if slug == "" {
@@ -53,7 +63,16 @@ func BoardPage(w http.ResponseWriter, r *http.Request) {
 	utils.RenderTemplate(w, "board_page.html", data)
 }
 
+// BoardsListPage godoc
+// @Summary Get list of boards
+// @Description Возвращает список всех досок
+// @Tags Boards
+// @Produce json
+// @Success 200 {array} entity.Board
+// @Router /boards_list_page/ [get]
 func BoardsListPage(w http.ResponseWriter, r *http.Request) {
+	// ... existing code ...
+
 	query := strings.TrimSpace(r.URL.Query().Get("q"))
 
 	var filtered []entity.Board
