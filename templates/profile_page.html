@@ -5,7 +5,7 @@
 <p><strong>Email:</strong> {{.Email}}</p>
 <h3>Редактирования Профиля</h3>
 
-<form method="POST" action="/profile_page/">
+<form method="POST" action="/profile">
 	<label>Новый email:</label><br />
 	<input type="email" name="email" /><br /><br />
 
@@ -16,5 +16,5 @@
 </form>
 
 <br />
-<a href="/logout/">Выйти из аккаунта</a>
+<a href="/logout">Выйти из аккаунта</a>
 {{ end }}

@@ -130,22 +130,22 @@
 			<!-- Левое меню -->
 			<nav>
 				<h3>Навигация</h3>
-				<a href="/">Главная</a> <a href="/boards_list_page/">Доски</a>
-				<a href="/profile_page/">Профиль</a>
-				<a href="/create_post_page/">Создать пост</a>
-				<a href="/login_page/">Войти</a>
-				<a href="/register_page/">Регистрация</a>
+				<a href="/">Главная</a> <a href="/boards">Доски</a>
+				<a href="/profile/1">Профиль</a>
+				<a href="/create-post">Создать пост</a>
+				<a href="/login">Войти</a>
+				<a href="/register">Регистрация</a>
 			</nav>
 			<!-- Центральная часть -->
 			<main>{{ template "content" . }}</main>
 			<!-- Правая колонка -->
 			<aside>
 				<h4>Категории</h4>
-				<div class="category"><a href="/boards/Title">Title</a></div>
-				<div class="category"><a href="/boards/Education">Education</a></div>
-				<div class="category"><a href="/boards/club">Club</a></div>
-				<div class="category"><a href="/boards/news">News</a></div>
-				<div class="category"><a href="/boards/reviews">Reviews</a></div>
+				<div class="category"><a href="/board/title">Title</a></div>
+				<div class="category"><a href="/board/education">Education</a></div>
+				<div class="category"><a href="/board/club">Club</a></div>
+				<div class="category"><a href="/board/news">News</a></div>
+				<div class="category"><a href="/board/reviews">Reviews</a></div>
 			</aside>
 		</div>
 	</body>

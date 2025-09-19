@@ -3,17 +3,18 @@ package app
 import (
 	"fmt"
 	"forum1/db"
-	_ "forum1/docs"
-	"forum1/internal/handlers"
+	handler "forum1/internal/handler"
+	"forum1/internal/repository"
+	"forum1/internal/router"
+	"forum1/internal/service"
 	"net/http"
+	"time"
 
 	httpSwagger "github.com/swaggo/http-swagger"
 )
 
-// Run запускает сервер форума
 func Run() {
-
-	// Инициализация базы данных
+	// подключение к БД
 	err := db.InitDB()
 	if err != nil {
 		fmt.Println("Ошибка подключения к базе:", err)
@@ -21,27 +22,74 @@ func Run() {
 	}
 	defer db.CloseDB()
 
-	// Основные страницы
-	http.HandleFunc("/", handlers.HomePage)
-	http.HandleFunc("/login_page/", handlers.LoginPage)
-	http.HandleFunc("/register_page/", handlers.RegisterPage)
-	http.HandleFunc("/profile_page/", handlers.ProfilePage)
-	http.HandleFunc("/create_post_page/", handlers.CreatePostPage)
-	http.HandleFunc("/board_page/", handlers.BoardPage)
-	http.HandleFunc("/boards_list_page/", handlers.BoardsListPage)
-	http.HandleFunc("/post_page/", handlers.PostPage)
-	http.HandleFunc("/post_image/", handlers.PostImage)
-	http.HandleFunc("/edit_post_page/", handlers.EditPostPage)
+	database := db.GetDB() // получаем *sql.DB
 
-	// Работа с постами и комментариями
-	http.HandleFunc("/vote_post/", handlers.VotePost)
-	http.HandleFunc("/add_comment/", handlers.AddComment)
-	http.HandleFunc("/delete_comment/", handlers.DeleteComment)
-	http.HandleFunc("/vote_comment/", handlers.VoteComment)
+	// слой repository
+	postRepo := repository.NewPostRepository(database)
+	boardRepo := repository.NewBoardRepository(database)
 
-	// Swagger UI доступен по адресу: http://localhost:8080/swagger/index.html
-	http.Handle("/swagger/", httpSwagger.WrapHandler)
+	// слой service
+	postService := service.NewPostService(postRepo)
+	boardService := service.NewBoardService(boardRepo)
+
+	// слой handler
+	userRepo := repository.NewUserRepository(database)
+	postHandler := handler.NewPostHandler(postService, userRepo)
+	pageHandler := handler.NewPageHandler(postService, boardService)
+	userHandler := handler.NewUserHandler(service.NewUserService(repository.NewUserRepository(database)))
+
+	// слой router
+	r := router.NewRouter(postHandler)
+	// HTML routes for templates
+	r.HandleFunc("/", pageHandler.HomePageHTML).Methods(http.MethodGet)
+	r.HandleFunc("/boards", pageHandler.BoardsListPage).Methods(http.MethodGet)
+	r.HandleFunc("/board/{slug}", pageHandler.BoardPage).Methods(http.MethodGet)
+	r.HandleFunc("/post/{id}", pageHandler.PostPageHTML).Methods(http.MethodGet)
+	r.HandleFunc("/profile/{id}", pageHandler.ProfilePageHTML).Methods(http.MethodGet)
+	r.HandleFunc("/login", pageHandler.LoginPageHTML).Methods(http.MethodGet)
+	r.HandleFunc("/register", pageHandler.RegisterPageHTML).Methods(http.MethodGet)
+	r.HandleFunc("/create-post", pageHandler.CreatePostPageHTML).Methods(http.MethodGet)
+	r.HandleFunc("/boards/search", pageHandler.BoardsSearchPageHTML).Methods(http.MethodGet)
+	r.HandleFunc("/search", pageHandler.SearchPageHTML).Methods(http.MethodGet)
+	r.HandleFunc("/settings", pageHandler.SettingsPageHTML).Methods(http.MethodGet)
+	r.HandleFunc("/messages", pageHandler.MessagesPageHTML).Methods(http.MethodGet)
+	r.HandleFunc("/notifications", pageHandler.NotificationsPageHTML).Methods(http.MethodGet)
+
+	// CORS (dev permissive)
+	r.Use(func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+			w.Header().Set("Access-Control-Allow-Origin", "http://localhost:5173")
+			w.Header().Set("Access-Control-Allow-Credentials", "true")
+			w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+			if req.Method == http.MethodOptions {
+				w.WriteHeader(http.StatusNoContent)
+				return
+			}
+			next.ServeHTTP(w, req)
+		})
+	})
+
+	// Logging middleware
+	r.Use(func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+			start := time.Now()
+			next.ServeHTTP(w, req)
+			fmt.Printf("%s %s %s\n", req.Method, req.URL.Path, time.Since(start))
+		})
+	})
+
+	// Swagger
+	r.PathPrefix("/swagger/").Handler(httpSwagger.WrapHandler)
+
+	// Static files
+	r.PathPrefix("/static/").Handler(http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
+
+	// API auth endpoints
+	api := r.PathPrefix("/api").Subrouter()
+	api.HandleFunc("/register", userHandler.RegisterPage).Methods(http.MethodPost)
+	api.HandleFunc("/login", userHandler.Login).Methods(http.MethodPost)
 
 	fmt.Println("Server is running on http://localhost:8080")
-	http.ListenAndServe(":8080", nil)
+	http.ListenAndServe(":8080", r)
 }

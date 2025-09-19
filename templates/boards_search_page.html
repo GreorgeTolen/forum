@@ -3,7 +3,7 @@
 <h3>Найденные доски:</h3>
 <ul>
 	{{range .BoardsResult}}
-	<li><a href="/boards?slug={{.Slug}}">{{.Title}}</a> — {{.Description}}</li>
+	<li><a href="/board/{{.Slug}}">{{.Title}}</a> — {{.Description}}</li>
 	{{else}}
 	<li>Доски не найдены</li>
 	{{end}}
@@ -13,7 +13,7 @@
 <ul>
 	{{range .PostsResult}}
 	<li>
-		<a href="/post_page?id={{.ID}}">{{.Title}}</a>
+		<a href="/post/{{.ID}}">{{.Title}}</a>
 		<p>{{.Content}}</p>
 	</li>
 	{{else}}

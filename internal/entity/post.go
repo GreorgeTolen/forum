@@ -1,8 +1,6 @@
 package entity
 
-import (
-	"time"
-)
+import "time"
 
 type Post struct {
 	ID        int       `json:"id"`

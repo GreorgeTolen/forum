@@ -3,103 +3,83 @@ package db
 import (
 	"database/sql"
 	"fmt"
+	"io/ioutil"
+	"os"
+	"path/filepath"
 
-	_ "github.com/lib/pq" // драйвер PostgreSQL
+	_ "github.com/lib/pq"
 )
 
 var DB *sql.DB
 
-// Инициализация подключения
 func InitDB() error {
-	connStr := "host=localhost port=5432 user=postgres password=120311 dbname=forumdb sslmode=disable"
+	if DB != nil {
+		return nil
+	}
+	dsn := os.Getenv("DATABASE_URL")
+	if dsn == "" {
+		host := getenv("DB_HOST", "localhost")
+		port := getenv("DB_PORT", "5432")
+		user := getenv("DB_USER", "postgres")
+		pass := getenv("DB_PASSWORD", "120311")
+		name := getenv("DB_NAME", "forumdb")
+		ssl := getenv("DB_SSLMODE", "disable")
+		dsn = fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=%s", host, port, user, pass, name, ssl)
+	}
 	var err error
-	DB, err = sql.Open("postgres", connStr)
+	DB, err = sql.Open("postgres", dsn)
 	if err != nil {
-		return fmt.Errorf("ошибка открытия подключения: %w", err)
+		return fmt.Errorf("open db: %w", err)
+	}
+	if err := DB.Ping(); err != nil {
+		return fmt.Errorf("ping db: %w", err)
 	}
 
-	// проверим подключение
-	err = DB.Ping()
-	if err != nil {
-		return fmt.Errorf("ошибка подключения к БД: %w", err)
+	if err := runMigrations(DB); err != nil {
+		return err
 	}
-
-	// минимальная миграция: колонка для хранения изображения в постах
-	if _, err := DB.Exec(`ALTER TABLE posts ADD COLUMN IF NOT EXISTS image_data BYTEA`); err != nil {
-		return fmt.Errorf("ошибка миграции (image_data): %w", err)
-	}
-
-	// добавить недостающие колонки под текущую модель
-	if _, err := DB.Exec(`ALTER TABLE posts ADD COLUMN IF NOT EXISTS image_url TEXT`); err != nil {
-		return fmt.Errorf("ошибка миграции (image_url): %w", err)
-	}
-	if _, err := DB.Exec(`ALTER TABLE posts ADD COLUMN IF NOT EXISTS link_url TEXT`); err != nil {
-		return fmt.Errorf("ошибка миграции (link_url): %w", err)
-	}
-	if _, err := DB.Exec(`ALTER TABLE posts ADD COLUMN IF NOT EXISTS board_id INTEGER`); err != nil {
-		return fmt.Errorf("ошибка миграции (board_id): %w", err)
-	}
-	if _, err := DB.Exec(`ALTER TABLE posts ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT now()`); err != nil {
-		return fmt.Errorf("ошибка миграции (created_at): %w", err)
-	}
-	if _, err := DB.Exec(`ALTER TABLE posts ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT now()`); err != nil {
-		return fmt.Errorf("ошибка миграции (updated_at): %w", err)
-	}
-
-	// комментарии
-	if _, err := DB.Exec(`
-		CREATE TABLE IF NOT EXISTS comments (
-			id SERIAL PRIMARY KEY,
-			post_id INTEGER NOT NULL REFERENCES posts(id) ON DELETE CASCADE,
-			author_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-			content TEXT NOT NULL,
-			created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-			updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
-		)`); err != nil {
-		return fmt.Errorf("ошибка миграции (comments): %w", err)
-	}
-
-	// лайки/дизлайки постов
-	if _, err := DB.Exec(`
-		CREATE TABLE IF NOT EXISTS post_votes (
-			post_id INTEGER NOT NULL REFERENCES posts(id) ON DELETE CASCADE,
-			user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-			value SMALLINT NOT NULL CHECK (value IN (-1, 1)),
-			PRIMARY KEY (post_id, user_id)
-		)`); err != nil {
-		return fmt.Errorf("ошибка миграции (post_votes): %w", err)
-	}
-
-	// лайки комментариев
-	if _, err := DB.Exec(`
-		CREATE TABLE IF NOT EXISTS comment_votes (
-			comment_id INTEGER NOT NULL REFERENCES comments(id) ON DELETE CASCADE,
-			user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-			value SMALLINT NOT NULL CHECK (value IN (-1, 1)),
-			PRIMARY KEY (comment_id, user_id)
-		)`); err != nil {
-		return fmt.Errorf("ошибка миграции (comment_votes): %w", err)
-	}
-
-	// уникальные просмотры постов
-	if _, err := DB.Exec(`
-		CREATE TABLE IF NOT EXISTS post_views (
-			post_id INTEGER NOT NULL REFERENCES posts(id) ON DELETE CASCADE,
-			user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-			created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-			PRIMARY KEY (post_id, user_id)
-		)`); err != nil {
-		return fmt.Errorf("ошибка миграции (post_views): %w", err)
-	}
-
-	fmt.Println("Подключение к базе успешно")
+	fmt.Println("DB connected and migrations applied")
 	return nil
 }
 
-// Закрытие подключения
+func GetDB() *sql.DB { return DB }
+
 func CloseDB() {
 	if DB != nil {
-		DB.Close()
-		fmt.Println("Подключение к базе закрыто")
+		_ = DB.Close()
 	}
+}
+
+func runMigrations(db *sql.DB) error {
+	// Try likely migration paths depending on working directory
+	candidates := []string{
+		filepath.Join("migrations", "001_init.sql"),             // run from repo root
+		filepath.Join("..", "migrations", "001_init.sql"),       // run from cmd/forum
+		filepath.Join("..", "..", "migrations", "001_init.sql"), // run from deeper dirs
+	}
+	for _, path := range candidates {
+		if _, err := os.Stat(path); err == nil {
+			bytes, err := ioutil.ReadFile(path)
+			if err != nil {
+				return fmt.Errorf("read migration %s: %w", path, err)
+			}
+			if _, err := db.Exec(string(bytes)); err != nil {
+				return fmt.Errorf("apply migration %s: %w", path, err)
+			}
+			return nil
+		}
+	}
+	// fallback minimal ensures (valid syntax for PostgreSQL)
+	if _, err := db.Exec(`ALTER TABLE posts ADD COLUMN IF NOT EXISTS image_data BYTEA`); err != nil {
+		return fmt.Errorf("fallback migration failed: %w", err)
+	}
+	return nil
+}
+
+func getenv(key, def string) string {
+	v := os.Getenv(key)
+	if v == "" {
+		return def
+	}
+	return v
 }

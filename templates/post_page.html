@@ -22,7 +22,7 @@
 		<small>Создан: {{ .CreatedAt }} · Обновлён: {{ .UpdatedAt }}</small>
 	</div>
 	<div style="margin-top: 16px">
-		<a href="/edit_post_page/?id={{ .ID }}">Редактировать</a>
+		<a href="/post/{{ .ID }}?edit=1">Редактировать</a>
 	</div>
 </article>
 
